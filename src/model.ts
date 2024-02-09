@@ -160,8 +160,6 @@ function createFetchLanguageModel(url: string, headers: object, defaultParams: o
         const retryPauseMs = model.retryPauseMs ?? 1000;
         const messages = typeof prompt === "string" ? [{ role: "user", content: prompt }] : prompt;
 
-        console.log("WRONG FUNCTION")
-
         while (true) {
             const options = {
                 method: "POST",
