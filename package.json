@@ -1,7 +1,7 @@
 {
   "name": "@anaisbetts/typechat",
   "author": "Microsoft",
-  "version": "0.1.0-ollama.1",
+  "version": "0.1.0-ollama.2",
   "license": "MIT",
   "description": "TypeChat is an experimental library that makes it easy to build natural language interfaces using types.",
   "keywords": [
