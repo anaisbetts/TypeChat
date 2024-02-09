@@ -1,4 +1,5 @@
 import { Result, success, error } from "./result";
+const ollama = import("ollama")
 
 /**
  * Represents a section of an LLM prompt with an associated role. TypeChat uses the "user" role for
@@ -55,6 +56,12 @@ export interface TypeChatLanguageModel {
  * @returns An instance of `TypeChatLanguageModel`.
  */
 export function createLanguageModel(env: Record<string, string | undefined>): TypeChatLanguageModel {
+    if (env.OLLAMA_ENDPOINT) {
+        const endPoint = env.OLLAMA_ENDPOINT ?? missingEnvironmentVariable("OLLAMA_ENDPOINT");
+        const model = env.OLLAMA_MODEL ?? "llama2"
+
+        return createOllamaLanguageModel(endPoint, model);
+    }
     if (env.OPENAI_API_KEY) {
         const apiKey = env.OPENAI_API_KEY ?? missingEnvironmentVariable("OPENAI_API_KEY");
         const model = env.OPENAI_MODEL ?? missingEnvironmentVariable("OPENAI_MODEL");
@@ -67,7 +74,7 @@ export function createLanguageModel(env: Record<string, string | undefined>): Ty
         const endPoint = env.AZURE_OPENAI_ENDPOINT ?? missingEnvironmentVariable("AZURE_OPENAI_ENDPOINT");
         return createAzureOpenAILanguageModel(apiKey, endPoint);
     }
-    missingEnvironmentVariable("OPENAI_API_KEY or AZURE_OPENAI_API_KEY");
+    missingEnvironmentVariable("OPENAI_API_KEY, AZURE_OPENAI_API_KEY, or OLLAMA_ENDPOINT");
 }
 
 /**
@@ -104,6 +111,40 @@ export function createAzureOpenAILanguageModel(apiKey: string, endPoint: string)
     return createFetchLanguageModel(endPoint, headers, {});
 }
 
+export function createOllamaLanguageModel(endpoint: string, model: string): TypeChatLanguageModel {
+    const ret: TypeChatLanguageModel = {
+        retryMaxAttempts: 3,
+        retryPauseMs: 1000,
+        complete: async (prompt) => {
+            // XXX: I hate this so much
+            const { Ollama } = await ollama;
+
+            const client = new Ollama({ host: endpoint });
+            let retryCount = 0;
+            const retryMaxAttempts = ret.retryMaxAttempts ?? 3;
+            const retryPauseMs = ret.retryPauseMs ?? 1000;
+            const messages = typeof prompt === "string" ? [{ role: "user", content: prompt }] : prompt;
+
+            while (true) {
+                const ret = await client.chat({ model, messages });
+
+                try {
+                    return success(ret.message.content);
+                } catch (e: any) {
+                    if (retryCount >= retryMaxAttempts) {
+                        return error(e.message);
+                    }
+                }
+
+                await sleep(retryPauseMs);
+                retryCount++;
+            }
+        }
+    }
+
+    return ret;
+}
+
 /**
  * Common OpenAI REST API endpoint encapsulation using the fetch API.
  */
@@ -118,6 +159,9 @@ function createFetchLanguageModel(url: string, headers: object, defaultParams: o
         const retryMaxAttempts = model.retryMaxAttempts ?? 3;
         const retryPauseMs = model.retryPauseMs ?? 1000;
         const messages = typeof prompt === "string" ? [{ role: "user", content: prompt }] : prompt;
+
+        console.log("WRONG FUNCTION")
+
         while (true) {
             const options = {
                 method: "POST",

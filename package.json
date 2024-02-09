@@ -39,6 +39,7 @@
     "SECURITY.md"
   ],
   "dependencies": {
+    "ollama": "^0.4.6",
     "typescript": "^5.3.3",
     "zod": "^3.22.4"
   },
