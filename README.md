@@ -1,3 +1,8 @@
+This is a hacky way to ask, but what do your env vars look like? with ```OLLAMA_ENDPOINT=http://localhost:11434/v1/
+OLLAMA_MODEL=llama2``` I'm getting 404s, same with ```
+OLLAMA_ENDPOINT=http://localhost:11434/v1/chat/completions
+OLLAMA_MODEL=llama2```
+
 # TypeChat
 
 TypeChat is a library that makes it easy to build natural language interfaces using types.
