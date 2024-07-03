@@ -1,7 +1,7 @@
 {
   "name": "@anaisbetts/typechat",
   "author": "Microsoft",
-  "version": "0.1.0-ollama.2",
+  "version": "0.1.0-ollama.4",
   "license": "MIT",
   "description": "TypeChat is an experimental library that makes it easy to build natural language interfaces using types.",
   "keywords": [
@@ -22,7 +22,7 @@
   "scripts": {
     "build": "tsc -p src",
     "build-all": "npm run build --workspaces",
-    "prepare": "npm run build-all"
+    "prepare": "npm run build"
   },
   "exports": {
     ".": "./dist/index.js",
@@ -39,6 +39,7 @@
     "SECURITY.md"
   ],
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.24.3",
     "ollama": "^0.4.6",
     "typescript": "^5.3.3",
     "zod": "^3.22.4"

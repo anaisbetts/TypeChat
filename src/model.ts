@@ -1,5 +1,6 @@
 import { Result, success, error } from "./result";
 const ollama = import("ollama")
+import Anthropic from "@anthropic-ai/sdk";
 
 /**
  * Represents a section of an LLM prompt with an associated role. TypeChat uses the "user" role for
@@ -57,11 +58,16 @@ export interface TypeChatLanguageModel {
  */
 export function createLanguageModel(env: Record<string, string | undefined>): TypeChatLanguageModel {
     if (env.OLLAMA_ENDPOINT) {
-        const endPoint = env.OLLAMA_ENDPOINT ?? missingEnvironmentVariable("OLLAMA_ENDPOINT");
+        const endPoint = env.OLLAMA_ENDPOINT
         const model = env.OLLAMA_MODEL ?? "llama2"
 
         return createOllamaLanguageModel(endPoint, model);
     }
+    if (env.ANTHROPIC_API_KEY) {
+        const model = env.ANTHROPIC_MODEL ?? "claude-2.1";
+        return createAnthropicLanguageModel(env.ANTHROPIC_API_KEY, model);
+    }
+
     if (env.OPENAI_API_KEY) {
         const apiKey = env.OPENAI_API_KEY ?? missingEnvironmentVariable("OPENAI_API_KEY");
         const model = env.OPENAI_MODEL ?? missingEnvironmentVariable("OPENAI_MODEL");
@@ -74,7 +80,7 @@ export function createLanguageModel(env: Record<string, string | undefined>): Ty
         const endPoint = env.AZURE_OPENAI_ENDPOINT ?? missingEnvironmentVariable("AZURE_OPENAI_ENDPOINT");
         return createAzureOpenAILanguageModel(apiKey, endPoint);
     }
-    missingEnvironmentVariable("OPENAI_API_KEY, AZURE_OPENAI_API_KEY, or OLLAMA_ENDPOINT");
+    missingEnvironmentVariable("OPENAI_API_KEY, AZURE_OPENAI_API_KEY, ANTHROPIC_API_KEY, or OLLAMA_ENDPOINT");
 }
 
 /**
@@ -144,6 +150,45 @@ export function createOllamaLanguageModel(endpoint: string, model: string): Type
 
     return ret;
 }
+
+export function createAnthropicLanguageModel(apiKey: string, model: string, maxTokens = 2500): TypeChatLanguageModel {
+    const ret: TypeChatLanguageModel = {
+        retryMaxAttempts: 3,
+        retryPauseMs: 1000,
+        complete: async (prompt) => {
+            const client = new Anthropic({ apiKey, });
+            let retryCount = 0;
+            const retryMaxAttempts = ret.retryMaxAttempts ?? 3;
+            const retryPauseMs = ret.retryPauseMs ?? 1000;
+
+            // XXX: This isn't really any, but Anthropic and our types for the same Thing mismatch
+            const messages: any = typeof prompt === "string" ? [{ role: "user", content: prompt }] : prompt;
+
+            while (true) {
+                const ret = await client.messages.create({ model, max_tokens: maxTokens, messages });
+
+                try {
+                    const content = ret.content
+                        .filter(x => x.type == "text")
+                        .map((x: any) => x.text ?? "")
+                        .join("\n")
+
+                    return success(content);
+                } catch (e: any) {
+                    if (retryCount >= retryMaxAttempts) {
+                        return error(e.message);
+                    }
+                }
+
+                await sleep(retryPauseMs);
+                retryCount++;
+            }
+        }
+    }
+
+    return ret;
+}
+
 
 /**
  * Common OpenAI REST API endpoint encapsulation using the fetch API.
